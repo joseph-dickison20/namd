@@ -1,4 +1,4 @@
-Refer to src/calc_classes.py to see how each calcualtion is 
+Refer to src/calc_classes.py to see how each calculation is 
 intialized and what objects are needed start the run.
 
 It is up to the user to extract from their ES code all the 

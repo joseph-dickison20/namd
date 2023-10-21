@@ -23,7 +23,7 @@ module load Python/3.8.6-GCCcore-10.2.0
 # Activate Python environment and source Q-Chem
 conda init bash # change shell if needed
 conda activate myenv # change environment if needed
-source /gpfs/gibbs/pi/hammes_schiffer/jad279/.qcsetup # chnage path to .qcsetup if needed
+source /gpfs/gibbs/pi/hammes_schiffer/jad279/.qcsetup # change path to .qcsetup if needed
 
 echo -e "\n***** READY TO RUN TRAJECTORY ***** \n"
 
