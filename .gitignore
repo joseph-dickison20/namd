@@ -1,10 +1,13 @@
-src/__pycache/
+src/__pycache__/
 d10.txt
 delE0.txt
 delE1.txt
 E0.txt
 E1.txt
-geom.txt
-pyqctest.out
+inter_run.sh
+namd.out
 qc.in
 qc.out
+gfile.txt
+xfile.txt
+vfile.txt

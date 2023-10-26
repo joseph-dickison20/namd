@@ -13,4 +13,5 @@ return the updated nuclear coordinates for the next step.
 The run.sh script is the sbatch script. The number of steps 
 you want to perform is controlled by the loop in run.sh. Writing 
 the updated coordinates to a new input file for your ES code can 
-be done in either main.py or within run.sh. 
+be done in either main.py or within run.sh. Cleanup unnecessary
+files after a run using cleanup.sh.
