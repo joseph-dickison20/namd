@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=namd
+#SBATCH -p pi_hammes_schiffer
 #SBATCH --output=namd.out
 #SBATCH --ntasks=1 --nodes=1
 #SBATCH --cpus-per-task=8
@@ -9,11 +10,12 @@
 netid=jad279
 
 # USER: DEFINE DYNAMICS PARAMATERS
-nsteps=20             # Number of steps to take in trajectory
-nsurf=1               # How many surfaces to consider in the dynamics
+nsteps=10              # Number of steps to take in trajectory
+nsurf=2               # How many surfaces to consider in the dynamics
 dt=0.06               # Time step (in femtoseconds)
 temperature=100       # Temperature (in Kelvin) used for intializing velocitites
 ncen=4                # Total number of basis function centers in calcualtion (number of atoms unless ghost centers are used)
+td_coeffs="1,1"       # String with an nsurf number of inital coefficients for either Ehrenfest of FSSH (can be commented out or left alone if doing AIMD, will be normalized in Python)
 quant_centers="2,3"   # String of nuclear indices that are quantized, place spaces in between (start count at 0)
 qcfile="qc"           # The "root" of the Q-Chem input file: the string prior to ".in" and ".out"
 # --conv2bohr flag of main.py controls whether or not to convert Cartesian coordinates from Angstrom to bohr, see below (include flag if true, exclude flag if false)
@@ -60,6 +62,7 @@ for ((i = 0; i <= $nsteps; i++)); do
         --dt $dt \
         --stepnum $i \
         --temperature $temperature \
+        --td_coeffs $td_coeffs \
         --quant_centers $quant_centers \
         --conv2bohr # comment out this line if no conversion to bohr is needed
     
@@ -69,12 +72,12 @@ for ((i = 0; i <= $nsteps; i++)); do
     # ****************** SAVE ANY INFO YOU WANT FROM THE CURRENT RUN BELOW ******************
 
     # Save proton densities at all steps divisible by 5
-    if [ $((i % 5)) -eq 0 ]; then
-        if [ "$i" -eq 0 ]; then
-            mkdir denplt
-        fi
-        mv pden_s0.cube denplt/${i}.cube
-    fi
+    #if [ $((i % 5)) -eq 0 ]; then
+    #    if [ "$i" -eq 0 ]; then
+    #        mkdir denplt
+    #    fi
+    #    mv pden_s0.cube denplt/${i}.cube
+    #fi
 
 done
 

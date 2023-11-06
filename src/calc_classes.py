@@ -124,7 +124,7 @@ class Ehrenfest(Calculation):
             prev_vels = np.genfromtxt('vfile.txt', dtype=float)
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
             # Integrate the TDSE to get the new coefficients for each adiabat
-            new_coeffs = get_new_coeffs(self.td_coeffs, self.dt, self.energies, vels, self.dcs)
+            new_coeffs = get_new_coeffs(self.td_coeffs, self.dt, self.energies, prev_vels, self.dcs)
             # Calculate the new average surface
             grad = get_ehrenfest_grad(new_coeffs, self.energies, self.gradients, self.dcs)
             vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)

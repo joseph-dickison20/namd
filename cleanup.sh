@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Remove NAMD file writes
-rm xfile.txt vfile.txt gfile.txt tdfile.txt #${qcfile}.out
+rm xfile.txt vfile.txt gfile.txt tdfile.txt ${qcfile}.out
 
 # Remove energy and gradient files
 for ((i = 0; i < nsurf; i++)); do
