@@ -4,7 +4,7 @@
 
 import numpy as np
 
-fs2au = 41.3413733365 # there are this mnay au of time in one femtosecond, the unit dt is given in
+fs2au = 41.3413733365 # there are this many au of time in one femtosecond, the unit dt is given in
 
 def get_accel(masses, grad):
     # a = F/m = -delE/m

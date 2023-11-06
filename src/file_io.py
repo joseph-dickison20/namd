@@ -4,10 +4,10 @@ import os
 import numpy as np
 from src.sys_info import *
 
-def aimd_print_info(masses, energies, vels, positions, grad, quant_centers):
+def print_info(masses, energies, vels, positions, grad, quant_centers):
     
     """
-    AIMD printing function.
+    Printing function following time step.
     """
 
     # Print quant_centers if applicable
@@ -15,11 +15,14 @@ def aimd_print_info(masses, energies, vels, positions, grad, quant_centers):
         print("\n NOTE the following centers have been quantized and were therefore assigned zero mass and velocity:")
         print(quant_centers)
 
-    # Print positions and velocities
-    print("\n VELOCITIES (in bohr/(au of time))")
-    print(vels)
-    print("\n POSITIONS (in bohr)")
+    # Print positions, velocities, and gradients
+    print("\n POSITIONS (for next time step, in bohr)")
     print(positions)
+    print("\n VELOCITIES (from previous time step, in bohr/(au of time))")
+    print(vels)
+    print("\n GRADIENT (was used to update the positions for the next time step, in hartree/bohr)")
+    print(grad)
+
 
     # Track COM motion and angular momentum
     com_vel = get_momentum(masses, vels) / np.sum(masses)
@@ -42,7 +45,7 @@ def aimd_print_info(masses, energies, vels, positions, grad, quant_centers):
     print(f" TOTAL ENERGY (KE of nuceli + PE of surface) = {total_energy:.10f} hartrees")
 
 
-def save_info(symbols, positions, vels, grad, conv2bohr):
+def save_info(symbols, positions, vels, grad, td_coeffs, conv2bohr):
     
     """
     Saves relevant info to files in the current working 
@@ -54,9 +57,11 @@ def save_info(symbols, positions, vels, grad, conv2bohr):
     xfile = "xfile.txt"
     vfile = "vfile.txt"
     gfile = "gfile.txt"
+    tdfile = "tdfile.txt"
     file_path_x = os.path.join(cwd, xfile)
     file_path_v = os.path.join(cwd, vfile)
     file_path_g = os.path.join(cwd, gfile)
+    file_path_td = os.path.join(cwd, tdfile)
 
     # ********* BEGIN SPECIAL FORMAT FOR POSITION FILE *********
     output = []
@@ -74,3 +79,4 @@ def save_info(symbols, positions, vels, grad, conv2bohr):
         file.write(final_output)
     np.savetxt(file_path_v, vels, fmt='%.12f', delimiter=' ')
     np.savetxt(file_path_g, grad, fmt='%.12f', delimiter=' ')
+    np.savetxt(file_path_td, td_coeffs, fmt='%.12f', delimiter=' ')

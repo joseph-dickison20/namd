@@ -4,6 +4,7 @@
 
 import os
 from src.file_io import *
+from src.get_surfaces import *
 from src.sys_info import *
 from src.velocity_init import *
 from src.vverlet import *
@@ -73,11 +74,66 @@ class AIMD(Calculation):
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
             vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
 
+        # Get the next coordinates via velocity Verlet
+        next_positions = get_next_position(masses, self.positions, vels, grad, self.dt)
+
         # Print relevant info at this time step
-        aimd_print_info(masses, self.energies, vels, self.positions, grad, self.quant_centers)
+        print_info(masses, self.energies, vels, next_positions, grad, self.quant_centers)
+
+        # Save the velcoity, positions, and gradient for next time step
+        save_info(self.symbols, next_positions, vels, grad, new_coeffs, self.conv2bohr)
+
+class Ehrenfest(Calculation):
+    
+    """
+    Ehrenfest dynamics class. 
+
+    Attributes:
+        gradients (list of numpy.ndarray): list of arrays of shape (N, 3) giving the gradient of the adiabatic state energies, in hartree/bohr
+        dcs (2D list of numpy.ndarray): list (indexed by two indices) where dcs[i][j] give the array of shape (N, 3) for the derivative coupling between adiabats i and j, in 1/bohr
+        td_coeffs (numpy.ndarray): Array of complex numbers giving the time-dependent coefficients for each adiabat considered from the previous time step
+    """
+
+    def __init__(self, gradients, dcs, td_coeffs, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        print("\n EHRENFEST REQUESTED: classical nuclei will be propagated an average surface ")
+        self.gradients = gradients
+        self.dcs = dcs
+        self.td_coeffs = td_coeffs
+    
+    def run(self):
+  
+        """
+        Ehrenfest run function. Obtains new coordinates for the next time step.
+        """
+
+        # Obtain masses of each center and initialize their velocities
+        masses = get_masses(self.symbols, self.quant_centers)
+
+        # Obtain next velocities via velocity Verlet (or initialize them),
+        # calculate the average gradient based on the velocities
+        if self.stepnum == 0:
+            # Get inital velocities
+            vels = get_initial_vels(masses, self.positions, self.temperature)
+            # Integrate the TDSE to get the new coefficients for each adiabat
+            new_coeffs = get_new_coeffs(self.td_coeffs, self.dt, self.energies, vels, self.dcs)
+            # Calculate the new average surface
+            grad = get_ehrenfest_grad(new_coeffs, self.energies, self.gradients, self.dcs)
+        else: 
+            # Get previous velocities and gradient of previous average surface
+            prev_vels = np.genfromtxt('vfile.txt', dtype=float)
+            prev_grad = np.genfromtxt('gfile.txt', dtype=float)
+            # Integrate the TDSE to get the new coefficients for each adiabat
+            new_coeffs = get_new_coeffs(self.td_coeffs, self.dt, self.energies, vels, self.dcs)
+            # Calculate the new average surface
+            grad = get_ehrenfest_grad(new_coeffs, self.energies, self.gradients, self.dcs)
+            vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
 
         # Get the next coordinates via velocity Verlet
         next_positions = get_next_position(masses, self.positions, vels, grad, self.dt)
 
+        # Print relevant info at this time step
+        print_info(masses, self.energies, vels, next_positions, grad, self.quant_centers)
+
         # Save the velcoity, positions, and gradient for next time step
-        save_info(self.symbols, next_positions, vels, grad, self.conv2bohr)
+        save_info(self.symbols, next_positions, vels, grad, new_coeffs, self.conv2bohr)
