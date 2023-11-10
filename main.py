@@ -25,9 +25,10 @@ def main():
     parser.add_argument("--td_coeffs", type=str, default="", help="String with an nsurf number of inital coefficients for either Ehrenfest of FSSH")
     parser.add_argument("--quant_centers", type=str, default="", help="String of nuclear indices that are quantized, place commas in between (start count at 0)")
     parser.add_argument("--conv2bohr", action='store_true', help="Controls whether or not to convert Cartesian coodfinates from Angstrom to bohr (include for true, exclude for false)")
+    parser.add_argument("--num_TDNAC", action='store_true', help="Controls whether or not the TD-NAC will be calculated numerically (include flag is true, exclude if false)")
     args = parser.parse_args()
 
-    # Obtain values
+    # Obtain values from arguments
     dt = args.dt
     nsurf = args.nsurf
     stepnum = args.stepnum
@@ -35,6 +36,7 @@ def main():
     td_coeffs = args.td_coeffs
     quant_centers = args.quant_centers
     conv2bohr = args.conv2bohr
+    num_TDNAC = args.num_TDNAC
     conv_factor = 1.8897259886 if conv2bohr else 1 # conversion factor based on conv2bohr value
 
     # Convert string quant_centers to 1D numpy array containing the indices
@@ -45,7 +47,7 @@ def main():
         int_list = [int(x) for x in str_list]
         quant_centers = np.array(int_list)
     
-    # Convert string of td_coeffs to 1D numpy arrary containing the initial coefficients or load 
+    # Convert string of td_coeffs to 1D numpy arrary containing the initial coefficients or load them in
     if stepnum == 0:
         if not td_coeffs:
             td_coeffs = np.array([])
@@ -96,6 +98,10 @@ def main():
     # Print current time
     curr_time = stepnum*dt
     print(f'\n CURRENT TIME: {curr_time:.4f} fs ')
+    if num_TDNAC and stepnum == 0:
+        print("\n NOTE: User has indicated that the TD-NAC matrix will be calcualted numerically.")
+        print(" On this inital step, since the sign convention for the adiabats has not yet been chosen,")
+        print(" for this step only, the TD-NAC will be calcualted analytically as v*dji.")
 
     # Print the nuclear geometry 
     print("\n MOLECULAR GEOMETRY (in bohr): ")
@@ -126,9 +132,9 @@ def main():
     """
 
     # Ehrenfest
-    ehrenfest = Ehrenfest(gradients=gradients, dcs=dcs, td_coeffs=td_coeffs, symbols=symbols, 
-                          positions=positions, nsurf=nsurf, energies=energies, dt=dt, stepnum=stepnum, 
-                          temperature=temperature, quant_centers=quant_centers, conv2bohr=conv2bohr)
+    ehrenfest = Ehrenfest(gradients=gradients, dcs=dcs, td_coeffs=td_coeffs, num_TDNAC=num_TDNAC, 
+                          symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, dt=dt, 
+                          stepnum=stepnum, temperature=temperature, quant_centers=quant_centers, conv2bohr=conv2bohr)
     ehrenfest.run()
 
 if __name__ == "__main__":

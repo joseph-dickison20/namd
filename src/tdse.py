@@ -6,7 +6,7 @@ from scipy.integrate import RK45
 
 fs2au = 41.3413733365 # there are this many au of time in one femtosecond, the unit dt is given in
 
-def ode_system(t, y, energies, vels, dcs, neqs):
+def ode_system(t, y, energies, Tmat, neqs):
     # Refer to Eq. (11) in Yu, Roy, and Hammes-Schiffer
     dci_dts = np.zeros(neqs, dtype=complex)
     for j in range(neqs):
@@ -15,11 +15,11 @@ def ode_system(t, y, energies, vels, dcs, neqs):
             if j == i:
                 dci_dt -= complex(0, energies[i]) * y[i]
             else: 
-                dci_dt -= np.sum(np.multiply(dcs[j][i], vels)) * y[i]
+                dci_dt -= Tmat[j,i] * y[i]
         dci_dts[j] = dci_dt
     return dci_dts
 
-def solve_tdse(coeffs, dt, energies, vels, dcs):
+def solve_tdse(coeffs, dt, energies, Tmat):
 
     """
     Integrates the coupled set of ODEs given in Eq. (11) in Yu, Roy, and Hammes-Schiffer to obtain the new coefficients for each 
@@ -30,8 +30,7 @@ def solve_tdse(coeffs, dt, energies, vels, dcs):
         coeffs (numpy.ndarray): Array of complex numbers giving the coefficients for each adiabat at the beginning of the time step
         dt (float): Time step used to propagate the classical nuclei, in femtoseconds
         energies (list): List of length nsurf containing the energies of the different surfaces, in hartrees 
-        vels (numpy.ndarray): An array of shape (N, 3) representing nuclear velocities, in bohr/(au of time)
-        dcs (2D list of numpy.ndarray): list indexed by two indices) where dcs[i][j] give the array of shape (N, 3) for the derivative coupling between adiabats i and j, in 1/bohr 
+        Tmat (numpy.ndarray): Time-dependent nonadiabatic coupling matrix, T, where T(i,j) = <\psi_i|d/dt(\psi_j)>
 
     Returns:
         new_coeffs (numpy.ndarray): Array of complex numbers giving the coefficients for each adiabat at the end of the time step
@@ -45,7 +44,7 @@ def solve_tdse(coeffs, dt, energies, vels, dcs):
     neqs = y0.size                 # number of equations in the system of ODEs
 
     # Initialize the solver
-    solver = RK45(fun=lambda t, y: ode_system(t, y, energies, vels, dcs, neqs), t0=t0, y0=y0, t_bound=t_bound, max_step=max_step)
+    solver = RK45(fun=lambda t, y: ode_system(t, y, energies, Tmat, neqs), t0=t0, y0=y0, t_bound=t_bound, max_step=max_step)
 
     # Run the solver 
     while solver.status == 'running':
