@@ -4,7 +4,7 @@ import os
 import numpy as np
 from src.sys_info import *
 
-def print_info(masses, energies, vels, positions, grad, quant_centers):
+def print_info(masses, pe, vels, positions, grad, quant_centers):
     
     """
     Printing function following time step.
@@ -18,11 +18,10 @@ def print_info(masses, energies, vels, positions, grad, quant_centers):
     # Print positions, velocities, and gradients
     print("\n POSITIONS (for next time step, in bohr)")
     print(positions)
-    print("\n VELOCITIES (from previous time step, in bohr/(au of time))")
+    print("\n VELOCITIES (at end of time step, in bohr/(au of time))")
     print(vels)
     print("\n GRADIENT (was used to update the positions for the next time step, in hartree/bohr)")
     print(grad)
-
 
     # Track COM motion and angular momentum
     com_vel = get_momentum(masses, vels) / np.sum(masses)
@@ -38,7 +37,6 @@ def print_info(masses, energies, vels, positions, grad, quant_centers):
     # Track total energy (in AIMD, potential is just the ground state energy)
     ke = 0.5 * np.sum(masses * np.sum(vels**2, axis=1)) # kinetic energy of system, in hartree
     ke_temp = get_temperature(masses, vels)
-    pe = energies[0]
     total_energy = ke + pe
     print(f"\n Kinetic energy of nuclei: {ke:.10f} hartrees, {ke_temp:.2f} Kelvin")
     print(f" Potential energy (energy of surface): {pe:.10f} hartrees")

@@ -34,23 +34,30 @@ def solve_tdse(coeffs, dt, energies, Tmat):
 
     Returns:
         new_coeffs (numpy.ndarray): Array of complex numbers giving the coefficients for each adiabat at the end of the time step
+        time_points (list): List of points in time (in au) for which the TSDE is integrated
+        y_values (list): List of solution vectors at each time point in time_points list
     """
 
     # Values needed to initialize the solver
     t0 = 0                         # current time, we always start each classical time step at time zero for the quantum evolution
     t_bound = fs2au*dt             # final time, duration of one classical time step
     y0 = coeffs                    # initial y values
-    max_step = 0.02                # a maximum step size of 0.02 au is hardcoded, we do not want any steps larger than this regardless of dt
+    max_step = 0.01                # a maximum step size of 0.01 au is hardcoded, we do not want any steps larger than this regardless of dt
     neqs = y0.size                 # number of equations in the system of ODEs
 
     # Initialize the solver
     solver = RK45(fun=lambda t, y: ode_system(t, y, energies, Tmat, neqs), t0=t0, y0=y0, t_bound=t_bound, max_step=max_step)
 
-    # Run the solver 
+    # Run the solver and collect time points and solution vectors
+    time_points = [t0]  # list of time points
+    y_values = [y0]     # list of solutions
     while solver.status == 'running':
         solver.step()
+        time_points.append(solver.t)
+        solver_y = solver.y / np.linalg.norm(solver.y)
+        y_values.append(solver_y)
     
-    # The array of new coefficient is the last solution vector of the solver, needs to be normalized
-    new_coeffs = solver.y / np.linalg.norm(solver.y)
+    # The array of new coefficients is the last solution vector of the solver
+    new_coeffs = y_values[-1]
 
-    return new_coeffs
+    return new_coeffs, time_points, y_values

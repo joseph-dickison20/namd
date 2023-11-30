@@ -4,9 +4,9 @@ from src.calc_classes import *
 
 def main():
     
-    # ******************************
-    #       MAIN RUN FUNCTION
-    # ******************************
+    # **********************************************************
+    # ****************   MAIN NAMD INTERFACE   *****************
+    # **********************************************************
 
     # This main.py script is the interface bewteen your ES code
     # and the dynamics code in the src/ directory, updating the 
@@ -14,7 +14,8 @@ def main():
 
     # See the README.txt for details on the workflow. 
 
-    # ******* READ IN & DEFINE NECESSARY PARAMETERS ******* 
+    
+    # **************** READ IN & DEFINE NECESSARY PARAMETERS **************** 
     
     # Parse arguments, set defaults
     parser = argparse.ArgumentParser(description="Argument parser for NAMD module")
@@ -25,7 +26,7 @@ def main():
     parser.add_argument("--td_coeffs", type=str, default="", help="String with an nsurf number of inital coefficients for either Ehrenfest of FSSH")
     parser.add_argument("--quant_centers", type=str, default="", help="String of nuclear indices that are quantized, place commas in between (start count at 0)")
     parser.add_argument("--conv2bohr", action='store_true', help="Controls whether or not to convert Cartesian coodfinates from Angstrom to bohr (include for true, exclude for false)")
-    parser.add_argument("--num_TDNAC", action='store_true', help="Controls whether or not the TD-NAC will be calculated numerically (include flag is true, exclude if false)")
+    parser.add_argument("--num_TDNAC", action='store_true', help="Controls whether or not the TD-NAC will be calculated numerically (include flag if true, exclude if false)")
     args = parser.parse_args()
 
     # Obtain values from arguments
@@ -37,7 +38,12 @@ def main():
     quant_centers = args.quant_centers
     conv2bohr = args.conv2bohr
     num_TDNAC = args.num_TDNAC
-    conv_factor = 1.8897259886 if conv2bohr else 1 # conversion factor based on conv2bohr value
+
+    
+    # **************** CONVERT READ-IN PARAMETERS TO USABLE FORMS ****************
+
+    # Account for conversion factor to bohr
+    conv_factor = 1.8897259886 if conv2bohr else 1 
 
     # Convert string quant_centers to 1D numpy array containing the indices
     if not quant_centers:
@@ -58,6 +64,10 @@ def main():
             td_coeffs = td_coeffs / np.sqrt(np.sum(td_coeffs**2))
     else:
         td_coeffs = np.genfromtxt('tdfile.txt', dtype=complex)
+
+    # For FSSH, we will collapse the coefficients of the active surface to one and zero for
+    # all other surfaces. So active_surface will be whichever element of td_coeffs is 1. 
+    active_surface = int(np.where(np.real(td_coeffs) == 1)[0][0]) if np.any(np.real(td_coeffs) == 1) else None
 
     # Store nuclei in symbols list and coordinates in numpy array
     symbols = [] # chemical symbols
@@ -93,16 +103,16 @@ def main():
             dcs[i][j] = dc
             dcs[j][i] = -1*dc # property of derivative couplings
     
-    # PRINT RELEVANT READ-IN INFO
+    
+    # **************** PRINT RELEVANT INFO ****************
 
     # Print current time
     curr_time = stepnum*dt
     print(f'\n CURRENT TIME: {curr_time:.4f} fs ')
-    if num_TDNAC and stepnum == 0:
-        print("\n NOTE: User has indicated that the TD-NAC matrix will be calcualted numerically.")
-        print(" On this inital step, since the sign convention for the adiabats has not yet been chosen,")
-        print(" for this step only, the TD-NAC will be calcualted analytically as v*dji.")
-
+    if stepnum == 0:
+        print("\n NOTE: For all methods, the inital time step will not integrate the TDSE.")
+        print(" The nuclei will move on the input surface for one step.")
+    
     # Print the nuclear geometry 
     print("\n MOLECULAR GEOMETRY (in bohr): ")
     formatted_positions = [['{:0.10f}'.format(val) for val in row] for row in positions]
@@ -122,20 +132,29 @@ def main():
             print(f'\n Derivative Coupling d{i}{j}:')
             print(dcs[i][j])
 
-    # ******* INITIALIZE & RUN CALCULATION ******* 
-
-    """
+    
+    # **************** INITIALIZE & RUN CALCULATION **************** 
+    
     # AIMD 
     aimd = AIMD(delE0=gradients[0], symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, dt=dt, 
                 stepnum=stepnum, temperature=temperature, quant_centers=quant_centers, conv2bohr=conv2bohr)
     aimd.run()
+    
     """
-
     # Ehrenfest
     ehrenfest = Ehrenfest(gradients=gradients, dcs=dcs, td_coeffs=td_coeffs, num_TDNAC=num_TDNAC, 
                           symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, dt=dt, 
                           stepnum=stepnum, temperature=temperature, quant_centers=quant_centers, conv2bohr=conv2bohr)
     ehrenfest.run()
+    """
+    
+    """
+    # FSSH
+    fssh = FSSH(gradients=gradients, active_surface=active_surface, dcs=dcs, td_coeffs=td_coeffs, num_TDNAC=num_TDNAC, 
+                symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, dt=dt, stepnum=stepnum, 
+                temperature=temperature, quant_centers=quant_centers, conv2bohr=conv2bohr)
+    fssh.run()
+    """
 
 if __name__ == "__main__":
     main()

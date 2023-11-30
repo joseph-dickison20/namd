@@ -69,6 +69,8 @@ class AIMD(Calculation):
         # Obtain next velocities via velocity Verlet (or initialize them)
         if self.stepnum == 0:
             vels = get_initial_vels(masses, self.positions, self.temperature)
+            print("\n INITIAL VELOCITIES (in bohr/(au of time))")
+            print(vels)
         else: 
             prev_vels = np.genfromtxt('vfile.txt', dtype=float)
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
@@ -78,10 +80,10 @@ class AIMD(Calculation):
         next_positions = get_next_position(masses, self.positions, vels, grad, self.dt)
 
         # Print relevant info at this time step
-        print_info(masses, self.energies, vels, next_positions, grad, self.quant_centers)
+        print_info(masses, self.energies[0], vels, next_positions, grad, self.quant_centers)
 
         # Save the velcoity, positions, and gradient for next time step
-        save_info(self.symbols, next_positions, vels, grad, new_coeffs, self.conv2bohr)
+        save_info(self.symbols, next_positions, vels, grad, np.array([]), self.conv2bohr)
 
 class Ehrenfest(Calculation):
     
@@ -106,31 +108,29 @@ class Ehrenfest(Calculation):
     def run(self):
   
         """
-        Ehrenfest run function. Obtains new coordinates for the next time step.
+        Ehrenfest run function. Obtains new coordinates for the next time step propagated on an average surface.
         """
 
         # Obtain masses of each center and initialize their velocities
         masses = get_masses(self.symbols, self.quant_centers)
 
-        # Obtain next velocities via velocity Verlet (or initialize them),
-        # calculate the average gradient based on the velocities
+        # Obtain next velocities via velocity Verlet (or initialize them), calculate the average gradient based on the velocities
         if self.stepnum == 0:
             # Get inital velocities
             vels = get_initial_vels(masses, self.positions, self.temperature)
-            # Obtain TD-NAC matrix
-            Tmat = get_T_matrix(vels, self.dcs, self.dt, False) # Because we are on t = 0, we can't compute numerical TD-NAC yet, so hardcode False
-            # Integrate the TDSE to get the new coefficients for each adiabat
-            new_coeffs = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)
-            # Calculate the new average surface
-            grad = get_ehrenfest_grad(new_coeffs, self.energies, self.gradients, self.dcs)
+            print("\n INITIAL VELOCITIES (in bohr/(au of time))")
+            print(vels)
+            # Get gradient
+            grad = get_ehrenfest_grad(self.td_coeffs, self.energies, self.gradients, self.dcs)
+            new_coeffs = self.td_coeffs # only for pe calculation below
         else: 
             # Get previous velocities and gradient of previous average surface
             prev_vels = np.genfromtxt('vfile.txt', dtype=float)
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
             # Obtain TD-NAC matrix
-            Tmat = get_T_matrix(vels, self.dcs, self.dt, self.num_TDNAC)
+            Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, self.num_TDNAC)
             # Integrate the TDSE to get the new coefficients for each adiabat
-            new_coeffs = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)
+            new_coeffs, time_points, y_values = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)
             # Calculate the new average surface
             grad = get_ehrenfest_grad(new_coeffs, self.energies, self.gradients, self.dcs)
             vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
@@ -139,7 +139,91 @@ class Ehrenfest(Calculation):
         next_positions = get_next_position(masses, self.positions, vels, grad, self.dt)
 
         # Print relevant info at this time step
-        print_info(masses, self.energies, vels, next_positions, grad, self.quant_centers)
+        pe = np.sum(np.abs(new_coeffs[i])**2 * self.energies[i] for i in range(len(new_coeffs)))
+        print_info(masses, pe, vels, next_positions, grad, self.quant_centers)
 
         # Save the velcoity, positions, and gradient for next time step
         save_info(self.symbols, next_positions, vels, grad, new_coeffs, self.conv2bohr)
+
+class FSSH(Calculation):
+    
+    """
+    FSSH dynamics class. 
+
+    Attributes:
+        gradients (list of numpy.ndarray): List of arrays of shape (N, 3) giving the gradient of the adiabatic state energies, in hartree/bohr
+        active_surface (int): Integer indicating which adiabatic state is currently active 
+        dcs (2D list of numpy.ndarray): List (indexed by two indices) where dcs[i][j] give the array of shape (N, 3) for the derivative coupling between adiabats i and j, in 1/bohr
+        td_coeffs (numpy.ndarray): Array of complex numbers giving the time-dependent coefficients for each adiabat considered from the previous time step
+        num_TDNAC (boolean): True if user is calculating the TD-NAC matrix numerically
+    """
+
+    def __init__(self, gradients, active_surface, dcs, td_coeffs, num_TDNAC, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        print("\n FSSH REQUESTED: classical nuclei will be on one adiabatic state at a time, with switches according to the FSSH algroithm ")
+        self.gradients = gradients
+        self.active_surface = active_surface
+        self.dcs = dcs
+        self.td_coeffs = td_coeffs
+        self.num_TDNAC = num_TDNAC
+    
+    def run(self):
+  
+        """
+        FSSH run function. Obtains new coordinates for the next time step, determines if we swtich to a new adiabatic state.
+        """
+
+        # In FSSH, we evolve R and v in the same way as AIMD on the current active surface. 
+        # After that, we determine if a hop occurs. If it does, we adjust the velocity accordingly. 
+        # If the hop was successful (ie not frustrated), the new active surface will take effect next step
+
+        # Obtain masses of each center and initialize their velocities
+        masses = get_masses(self.symbols, self.quant_centers)
+
+        # Get the current ative surface
+        grad = self.gradients[self.active_surface]
+
+        # Obtain next velocities via velocity Verlet (or initialize them)
+        if self.stepnum == 0:
+            vels = get_initial_vels(masses, self.positions, self.temperature)
+            print("\n INITIAL VELOCITIES (in bohr/(au of time))")
+            print(vels)
+        else: 
+            prev_vels = np.genfromtxt('vfile.txt', dtype=float)
+            prev_grad = np.genfromtxt('gfile.txt', dtype=float)
+            vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
+
+        # Get the next coordinates via velocity Verlet
+        next_positions = get_next_position(masses, self.positions, vels, grad, self.dt)
+
+        # We have evolved R and v on this surface. We now determine if a hop will occur. 
+
+        print_coeffs = self.td_coeffs # default coeffs to print 
+        if self.stepnum != 0: # inital step should be equivalent to an AIMD step
+
+            # Obtain T matrix (using previous velocities, it is not the new velcoities that determine the Tmat)
+            Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, self.num_TDNAC)
+        
+            # Integrate the TDSE to get the new coefficients for each adiabat
+            new_coeffs, time_points, y_values = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)
+            print_coeffs = new_coeffs
+            
+            # Determine if hop occurs 
+            hop_check = check_hop(time_points, y_values, self.active_surface, Tmat)
+
+            # Rescale velocities if a hop occured
+            if hop_check != -1:
+                print(f"\n HOP FROM STATE {self.active_surface} TO STATE {hop_check} ATTEMPTED...")
+                nacv = self.dcs[self.active_surface][hop_check]
+                ediff = self.energies[hop_check] - self.energies[self.active_surface]
+                vels, frustrated = rescale_vels(vels, nacv, masses, ediff) # vels should be rewritten in case of frustrated or non-frustrated hop
+                if not frustrated: # however, we only change the active surface if the hop was not frustrated
+                    # Set gradient to the new active surface
+                    grad = self.gradients[hop_check]
+                self.active_surface = hop_check # set active surface to the one we hopped to
+
+        # Print relevant info at this time step
+        print_info(masses, self.energies[self.active_surface], vels, next_positions, grad, self.quant_centers)
+
+        # Save the velocity, positions, and gradient for next time step
+        save_info(self.symbols, next_positions, vels, grad, print_coeffs, self.conv2bohr)

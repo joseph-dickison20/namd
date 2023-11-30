@@ -14,12 +14,12 @@ nsteps=10             # Number of steps to take in trajectory
 nsurf=2               # How many surfaces to consider in the dynamics
 dt=0.06               # Time step (in femtoseconds)
 temperature=100       # Temperature (in Kelvin) used for intializing velocitites
-ncen=4                # Total number of basis function centers in calcualtion (number of atoms unless ghost centers are used)
-td_coeffs="1,1"       # String with an nsurf number of inital coefficients for either Ehrenfest of FSSH (can be commented out or left alone if doing AIMD, will be normalized in Python)
+ncen=4                # Total number of basis function centers in calculation (number of atoms unless ghost centers are used)
+td_coeffs="1,0"       # String with an nsurf number of inital coefficients for either Ehrenfest of FSSH (can be commented out or left alone if doing AIMD, will be normalized in Python)
 quant_centers="2,3"   # String of nuclear indices that are quantized, place spaces in between (start count at 0)
 qcfile="qc"           # The "root" of the Q-Chem input file: the string prior to ".in" and ".out"
 # --conv2bohr flag of main.py controls whether or not to convert Cartesian coordinates from Angstrom to bohr, see below (include flag if true, exclude flag if false)
-# --num_TDNAC flag of main.py controls whether or not the TD-NAC will be calculated numerically (include flag is true, exclude if false)
+# --num_TDNAC flag of main.py controls whether or not the TD-NAC will be calculated numerically (include flag if true, exclude if false)
 
 echo -e "\n****************** LOAD MODULES, SOURCE Q-CHEM, & ACTIVATE PYTHON ****************** \n"
 

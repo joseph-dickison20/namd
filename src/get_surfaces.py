@@ -1,4 +1,4 @@
-# File containing functions to calculate (Ehrenfest) or choose (FSSH) gradeints for classical nuclei to move on.
+# File containing functions to calculate (Ehrenfest) or choose (FSSH) gradients for classical nuclei to move on.
 # Also contains function to obtain new coefficients from the TDSE. The following sources will be cited in the documentation:
 #   Qi Yu, Saswata Roy, and Sharon Hammes-Schiffer, Journal of Chemical Theory and Computation 2022 18 (12), 7132-7141, DOI: 10.1021/acs.jctc.2c00938
 #   Amber Jain, Ethan Alguire, and Joseph E. Subotnik, Journal of Chemical Theory and Computation 2016 12 (11), 5256-5268, DOI: 10.1021/acs.jctc.6b00673
@@ -60,6 +60,8 @@ def get_new_coeffs(coeffs, dt, energies, Tmat):
 
     Returns:
         new_coeffs (numpy.ndarray): Array of complex numbers giving the coefficients for each adiabat at the end of the time step
+        time_points (list): List of points in time (in au) for which the TSDE is integrated
+        y_values (list): List of solution vectors at each time point in time_points list
     """
 
     # Get number of surfaces included
@@ -71,14 +73,14 @@ def get_new_coeffs(coeffs, dt, energies, Tmat):
         print(f" C_{i} = {coeffs[i].real:0.6f} + {coeffs[i].imag:0.6f}j, \t |C_{i}|^2 = {(np.abs(coeffs[i])**2):0.6f}")
 
     # Integrate the TDSE, Eq. (11) in Yu, Roy, and Hammes-Schiffer, to obtain new coefficients
-    new_coeffs = solve_tdse(coeffs, dt, energies, Tmat)
+    new_coeffs, time_points, y_values = solve_tdse(coeffs, dt, energies, Tmat)
 
     # Final print out
     print("\n Coefficients for each adiabatic state at end of time step:")
     for i in range(nsurf):
         print(f" C_{i} = {new_coeffs[i].real:0.6f} + {new_coeffs[i].imag:0.6f}j, \t |C_{i}|^2 = {(np.abs(new_coeffs[i])**2):0.6f}")
-
-    return new_coeffs
+    
+    return new_coeffs, time_points, y_values
 
 def get_ehrenfest_grad(coeffs, energies, gradients, dcs):
 
@@ -97,7 +99,7 @@ def get_ehrenfest_grad(coeffs, energies, gradients, dcs):
 
     # Preallocate the ehrenfest_grad 
     ehrenfest_grad = np.zeros_like(gradients[0])
-
+    
     # Use RHS of Eq. (8) in Yu, Roy, and Hammes-Schiffer to construct the gradient
     # Note the negative sign is ignored since it will accounted for in the Verlet
     nsurf = len(energies)
@@ -112,3 +114,106 @@ def get_ehrenfest_grad(coeffs, energies, gradients, dcs):
             ehrenfest_grad += weight*grad_term
 
     return ehrenfest_grad
+
+def check_hop(time_points, y_values, active_surface, Tmat):
+
+    """
+    Calculates whether or not a hop to a new adiabatic state occurs duing a classical time step for FSSH. 
+
+    Args:
+        time_points (list): List of points in time (in au) for which the TSDE is integrated
+        y_values (list): List of solution vectors at each time point in time_points list
+        active_surface (int): Integer indicating which adiabatic state is currently active 
+        Tmat (numpy.ndarray): Time-dependent nonadiabatic coupling matrix, T, where T(i,j) = <\psi_i|d/dt(\psi_j)>
+
+    Returns:
+        hop_check (int): Integer indicating if hop occured; returns -1 if no hop occured, but if hop occured, hop_check gives the index of the new active state
+    """
+
+    # Get the number of states and number of steps
+    nstates = Tmat.shape[0]
+    nsteps = len(time_points) 
+
+    # Initialize hop_check integer and hop_occured flag
+    hop_occurred = False
+    hop_check = -1
+
+    # Compute hopping probabilities between the current state and all other states
+    for i in range(1,nsteps): # check for all quantum time-steps
+        
+        # Store the hopping probability between active state and all states
+        hop_probs = [] 
+        # Calculate hop_prob for all states
+        for j in range(nstates): 
+            if j != active_surface:
+                dtq = time_points[i] - time_points[i-1] # time step
+                curr_soln = y_values[i] # the current set of solutions
+                mag = np.abs(curr_soln[active_surface])**2 # magnitude of the active coefficient
+                # Calculate hop prob between active_state and current state j 
+                curr_prob = ((2*dtq)/mag)*np.real(Tmat[active_surface,j]*np.conj(curr_soln[active_surface]*curr_soln[j]))
+                if curr_prob < 0:
+                    hop_probs.append(0)
+                else:
+                    hop_probs.append(curr_prob)
+            else:
+                hop_probs.append(0)
+
+        # Sum up the cumulative probabilities 
+        cml_probs = [0] + [sum(hop_probs[:k+1]) for k in range(len(hop_probs))]
+        rnd = np.random.rand()
+
+        for k in range(len(cml_probs) - 1):
+            if cml_probs[k] < rnd < cml_probs[k + 1]:
+                hop_occurred = True
+                hop_check = k
+
+        # Exit loop if a hop occured
+        if hop_occurred:
+            break
+
+    return hop_check
+
+def rescale_vels(vels, nacv, masses, ediff):
+
+    """
+    Rescales the nuclear velocities if a hop occurs for both a successful and frustrated hop.
+    Refer to Jain page 45820, step (viii) for the velocity reversal scheme implemented here.
+
+    Args:
+        vels (numpy.ndarray): An array of shape (N, 3) representing nuclear velocities, in bohr/(au of time)
+        nacv (numpy.ndarray): An array of shape (N, 3) for the nonadiabtic coupling vector, in 1/bohr
+        masses (numpy.ndarray): An array of shape (N,) representing nuclear masses, in m_e
+        ediff (float): Energy difference between new active state and current active state, in hartrees
+
+    Returns:
+        new_vels (numpy.ndarray): An array of shape (N, 3) representing the new nuclear velocities, in bohr/(au of time)
+        frustrated (boolean): Boolean specifying if the hop is frustrated, True if it is, False if it is not
+    """
+
+    # Save original error setttings and ignore the divide by zero (for quant_centers)
+    original_settings = np.geterr() 
+    np.seterr(divide='ignore', invalid='ignore') 
+
+    # Calcualte a, b, and c
+    a = 0.5 * np.sum(np.where(masses[:, np.newaxis] != 0, (nacv**2) / masses[:, np.newaxis], 0))
+    b = np.sum(vels * nacv)
+    c = ediff
+
+    # Calculate gamma
+    discriminant = b**2 - 4*a*c
+    if discriminant < 0:
+        print(" HOP FRUSTRATED, REVERSING VELOCITY ")
+        frustrated =  True
+        gamma = b/a 
+    else:
+        print(" HOP SUCCESSFUL ")
+        frustrated =  False
+        gamma = (-1*b + np.sign(b)*np.sqrt(discriminant))/(2*a)
+
+    # Calculate new velocities
+    new_vels = vels - gamma*(np.where(masses[:, np.newaxis] != 0, nacv / masses[:, np.newaxis], 0))
+    
+    # Restore the original error settings
+    np.seterr(**original_settings) 
+
+    return new_vels, frustrated
