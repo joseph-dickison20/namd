@@ -68,6 +68,7 @@ for ((i = 0; i <= $nsteps; i++)); do
     fi
 
     # Run python script to get new coordinates
+    export PYTHONPATH=/gpfs/gibbs/pi/hammes_schiffer/jad279:$PYTHONPATH # the path of the namd module
     python main.py \
         --nsurf $nsurf \
         --dt $dt \
@@ -84,14 +85,22 @@ for ((i = 0; i <= $nsteps; i++)); do
     # ****************** SAVE ANY INFO YOU WANT FROM THE CURRENT STEP BELOW ******************
 
     # Save proton densities at all steps divisible by 5
-    #if [ $((i % 5)) -eq 0 ]; then
-    #    if [ "$i" -eq 0 ]; then
-    #        mkdir denplt
-    #    fi
-    #    mv pden_s0.cube denplt/${i}.cube
-    #fi
+    if [ $((i % 5)) -eq 0 ]; then
+        if [ "$i" -eq 0 ]; then
+            mkdir denplt
+        fi
+        mv pden_s0.cube denplt/${i}.cube
+    fi
+
+    # Save all the Q-Chem output files
+    if [ "$i" -eq 0 ]; then
+        mkdir qc_out
+    fi
+    mv ${qcfile}.out qc_out/${i}.out
 
 done
+
+echo -e "\n****************** TRAJECTORY COMPLETE ****************** "
 
 # Remove unnecessary files
 ./cleanup.sh \

@@ -1,6 +1,6 @@
 import numpy as np
 import argparse
-from src.calc_classes import *
+from namd.src.calc_classes import *
 
 def main():
     
