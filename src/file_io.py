@@ -4,7 +4,7 @@ import os
 import numpy as np
 from src.sys_info import *
 
-def print_info(masses, pe, vels, positions, grad, quant_centers):
+def print_info(masses, pe, vels, positions, grad, quant_centers, fixed_centers):
     
     """
     Printing function following time step.
@@ -14,6 +14,10 @@ def print_info(masses, pe, vels, positions, grad, quant_centers):
     if np.size(quant_centers) != 0:
         print("\n NOTE the following centers have been quantized and were therefore assigned zero mass and velocity:")
         print(quant_centers)
+
+    if np.size(fixed_centers) != 0:
+        print("\n NOTE the following centers have been fixed and will remain in their inital positions:")
+        print(fixed_centers)
 
     # Print positions, velocities, and gradients
     print("\n POSITIONS (for next time step, in bohr)")

@@ -16,10 +16,12 @@ dt=0.06               # Time step (in femtoseconds)
 temperature=100       # Temperature (in Kelvin) used for intializing velocitites
 ncen=4                # Total number of basis function centers in calculation (number of atoms unless ghost centers are used)
 td_coeffs="1,0"       # String with an nsurf number of inital coefficients for either Ehrenfest of FSSH (can be commented out or left alone if doing AIMD, will be normalized in Python)
-quant_centers="2,3"   # String of nuclear indices that are quantized, place spaces in between (start count at 0)
+quant_centers="2,3"   # String of nuclear indices that are quantized, place commas in between (start count at 0)
+fixed_centers=""      # String of nuclear indices that are fixed, place commas in between (start count at 0)
 qcfile="qc"           # The "root" of the Q-Chem input file: the string prior to ".in" and ".out"
 # --conv2bohr flag of main.py controls whether or not to convert Cartesian coordinates from Angstrom to bohr, see below (include flag if true, exclude flag if false)
 # --num_TDNAC flag of main.py controls whether or not the TD-NAC will be calculated numerically (include flag if true, exclude if false)
+# --vel_init flag of main.py controls whether or not the user will provide inital velocities (include flag if true, exclude if false)
 
 echo -e "\n****************** LOAD MODULES, SOURCE Q-CHEM, & ACTIVATE PYTHON ****************** \n"
 
@@ -75,9 +77,11 @@ for ((i = 0; i <= $nsteps; i++)); do
         --stepnum $i \
         --temperature $temperature \
         --td_coeffs $td_coeffs \
-        --quant_centers $quant_centers \
+        --quant_centers "$quant_centers" \
+        --fixed_centers "$fixed_centers" \
         --conv2bohr \
-        --num_TDNAC
+        --num_TDNAC \
+        --vel_init
     
     # Create new input file 
     head -n 2 ${qcfile}.in > temp.in; cat xfile.txt >> temp.in; echo "" >> temp.in; tail -n +$((ncen+3)) ${qcfile}.in >> temp.in; mv temp.in ${qcfile}.in

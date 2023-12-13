@@ -23,10 +23,12 @@ class Calculation:
         stepnum (int): Current step number (0 is the inital time step)
         temperature (float): Temperature used to set the kinetic energy 3/2NkT for inital velocities, in Kelvin
         quant_centers (numpy.ndarray): Array of integers giving indices for which nuclei should be given no mass or velocity
+        fixed_centers (numpy.ndarray): Array of integers giving indices for which nuclei should be fixed in place
         conv2bohr (boolean): True if we need to convert positions from bohr to Angstrom in final printout, false if we do not need to
+        vel_init (boolean): True if user will provide an inital input velocity in vfile.txt in the cwd, false if an inital velocity will be chosen
     """
 
-    def __init__(self, symbols, positions, nsurf, energies, dt, stepnum, temperature, quant_centers, conv2bohr):
+    def __init__(self, symbols, positions, nsurf, energies, dt, stepnum, temperature, quant_centers, fixed_centers, conv2bohr, vel_init):
         self.symbols = symbols
         self.positions = positions
         self.nsurf = nsurf
@@ -35,7 +37,9 @@ class Calculation:
         self.stepnum = stepnum
         self.temperature = temperature
         self.quant_centers = quant_centers
+        self.fixed_centers = fixed_centers
         self.conv2bohr = conv2bohr
+        self.vel_init = vel_init
 
 class AIMD(Calculation):
     
@@ -68,19 +72,27 @@ class AIMD(Calculation):
 
         # Obtain next velocities via velocity Verlet (or initialize them)
         if self.stepnum == 0:
-            vels = get_initial_vels(masses, self.positions, self.temperature)
+            if self.vel_init is True:
+                vels = np.genfromtxt('vfile.txt', dtype=float)
+                vels = rescale_vel_to_temp(masses, vels, self.temperature)
+            else:
+                vels = get_initial_vels(masses, self.positions, self.temperature)
             print("\n INITIAL VELOCITIES (in bohr/(au of time))")
             print(vels)
         else: 
             prev_vels = np.genfromtxt('vfile.txt', dtype=float)
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
             vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
+            for i in self.fixed_centers:
+                vels[i, :] = 0
 
         # Get the next coordinates via velocity Verlet
         next_positions = get_next_position(masses, self.positions, vels, grad, self.dt)
+        for i in self.fixed_centers:
+            next_positions[i, :] = self.positions[i, :]
 
         # Print relevant info at this time step
-        print_info(masses, self.energies[0], vels, next_positions, grad, self.quant_centers)
+        print_info(masses, self.energies[0], vels, next_positions, grad, self.quant_centers, self.fixed_centers)
 
         # Save the velcoity, positions, and gradient for next time step
         save_info(self.symbols, next_positions, vels, grad, np.array([]), self.conv2bohr)
@@ -117,7 +129,11 @@ class Ehrenfest(Calculation):
         # Obtain next velocities via velocity Verlet (or initialize them), calculate the average gradient based on the velocities
         if self.stepnum == 0:
             # Get inital velocities
-            vels = get_initial_vels(masses, self.positions, self.temperature)
+            if self.vel_init is True:
+                vels = np.genfromtxt('vfile.txt', dtype=float)
+                vels = rescale_vel_to_temp(masses, vels, self.temperature)
+            else:
+                vels = get_initial_vels(masses, self.positions, self.temperature)
             print("\n INITIAL VELOCITIES (in bohr/(au of time))")
             print(vels)
             # Get gradient
@@ -129,18 +145,24 @@ class Ehrenfest(Calculation):
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
             # Obtain TD-NAC matrix
             Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, self.num_TDNAC)
+            print("\n TD-NAC MATRIX (1/(au of time))")
+            print(Tmat)
             # Integrate the TDSE to get the new coefficients for each adiabat
             new_coeffs, time_points, y_values = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)
             # Calculate the new average surface
             grad = get_ehrenfest_grad(new_coeffs, self.energies, self.gradients, self.dcs)
             vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
+            for i in self.fixed_centers:
+                vels[i, :] = 0
 
         # Get the next coordinates via velocity Verlet
         next_positions = get_next_position(masses, self.positions, vels, grad, self.dt)
+        for i in self.fixed_centers:
+            next_positions[i, :] = self.positions[i, :]
 
         # Print relevant info at this time step
         pe = np.sum(np.abs(new_coeffs[i])**2 * self.energies[i] for i in range(len(new_coeffs)))
-        print_info(masses, pe, vels, next_positions, grad, self.quant_centers)
+        print_info(masses, pe, vels, next_positions, grad, self.quant_centers, self.fixed_centers)
 
         # Save the velcoity, positions, and gradient for next time step
         save_info(self.symbols, next_positions, vels, grad, new_coeffs, self.conv2bohr)
@@ -185,16 +207,24 @@ class FSSH(Calculation):
 
         # Obtain next velocities via velocity Verlet (or initialize them)
         if self.stepnum == 0:
-            vels = get_initial_vels(masses, self.positions, self.temperature)
+            if self.vel_init is True:
+                vels = np.genfromtxt('vfile.txt', dtype=float)
+                vels = rescale_vel_to_temp(masses, vels, self.temperature)
+            else:
+                vels = get_initial_vels(masses, self.positions, self.temperature)
             print("\n INITIAL VELOCITIES (in bohr/(au of time))")
             print(vels)
         else: 
             prev_vels = np.genfromtxt('vfile.txt', dtype=float)
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
             vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
+            for i in self.fixed_centers:
+                vels[i, :] = 0
 
         # Get the next coordinates via velocity Verlet
         next_positions = get_next_position(masses, self.positions, vels, grad, self.dt)
+        for i in self.fixed_centers:
+            next_positions[i, :] = self.positions[i, :]
 
         # We have evolved R and v on this surface. We now determine if a hop will occur. 
 
@@ -203,11 +233,13 @@ class FSSH(Calculation):
 
             # Obtain T matrix (using previous velocities, it is not the new velcoities that determine the Tmat)
             Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, self.num_TDNAC)
-        
+            print("\n TD-NAC MATRIX (1/(au of time))")
+            print(Tmat)
+            
             # Integrate the TDSE to get the new coefficients for each adiabat
             new_coeffs, time_points, y_values = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)
             print_coeffs = new_coeffs
-            
+
             # Determine if hop occurs 
             hop_check = check_hop(time_points, y_values, self.active_surface, Tmat)
 
@@ -223,7 +255,9 @@ class FSSH(Calculation):
                 self.active_surface = hop_check # set active surface to the one we hopped to
 
         # Print relevant info at this time step
-        print_info(masses, self.energies[self.active_surface], vels, next_positions, grad, self.quant_centers)
+        print_info(masses, self.energies[self.active_surface], vels, next_positions, grad, self.quant_centers, self.fixed_centers)
 
-        # Save the velocity, positions, and gradient for next time step
+        # Save the velocity, positions, and gradient, and acitve surface for next time step
         save_info(self.symbols, next_positions, vels, grad, print_coeffs, self.conv2bohr)
+        with open("active_surface.txt", "w") as file:
+            file.write(str(self.active_surface))

@@ -25,8 +25,10 @@ def main():
     parser.add_argument("--temperature", type=float, default=298.15, help="Temperature (in Kelvin) used for intializing velocitites")
     parser.add_argument("--td_coeffs", type=str, default="", help="String with an nsurf number of inital coefficients for either Ehrenfest of FSSH")
     parser.add_argument("--quant_centers", type=str, default="", help="String of nuclear indices that are quantized, place commas in between (start count at 0)")
+    parser.add_argument("--fixed_centers", type=str, default="", help="String of nuclear indices that are fixed, place commas in between (start count at 0)")
     parser.add_argument("--conv2bohr", action='store_true', help="Controls whether or not to convert Cartesian coodfinates from Angstrom to bohr (include for true, exclude for false)")
     parser.add_argument("--num_TDNAC", action='store_true', help="Controls whether or not the TD-NAC will be calculated numerically (include flag if true, exclude if false)")
+    parser.add_argument("--vel_init", action='store_true', help="Controls whether or not the user will provide inital velocities (include flag if true, exclude if false)")
     args = parser.parse_args()
 
     # Obtain values from arguments
@@ -36,8 +38,10 @@ def main():
     temperature = args.temperature
     td_coeffs = args.td_coeffs
     quant_centers = args.quant_centers
+    fixed_centers = args.fixed_centers
     conv2bohr = args.conv2bohr
     num_TDNAC = args.num_TDNAC
+    vel_init = args.vel_init
 
     
     # **************** CONVERT READ-IN PARAMETERS TO USABLE FORMS ****************
@@ -52,6 +56,14 @@ def main():
         str_list = quant_centers.split(',')
         int_list = [int(x) for x in str_list]
         quant_centers = np.array(int_list)
+
+    # Convert string fixed_centers to 1D numpy array containing the indices
+    if not fixed_centers:
+        fixed_centers = fixed_centers=np.array([])
+    else:
+        str_list = fixed_centers.split(',')
+        int_list = [int(x) for x in str_list]
+        fixed_centers = np.array(int_list)
     
     # Convert string of td_coeffs to 1D numpy arrary containing the initial coefficients or load them in
     if stepnum == 0:
@@ -65,9 +77,13 @@ def main():
     else:
         td_coeffs = np.genfromtxt('tdfile.txt', dtype=complex)
 
-    # For FSSH, we will collapse the coefficients of the active surface to one and zero for
-    # all other surfaces. So active_surface will be whichever element of td_coeffs is 1. 
-    active_surface = int(np.where(np.real(td_coeffs) == 1)[0][0]) if np.any(np.real(td_coeffs) == 1) else None
+    # Find active surface for FSSH
+    if stepnum == 0:
+        # Assume we begin in one adiabatic state, not a coherent mixture
+        active_surface = int(np.where(np.real(td_coeffs) == 1)[0][0]) if np.any(np.real(td_coeffs) == 1) else None
+    else:
+        with open("active_surface.txt", "r") as file:
+            active_surface = int(file.read())
 
     # Store nuclei in symbols list and coordinates in numpy array
     symbols = [] # chemical symbols
@@ -135,26 +151,30 @@ def main():
     
     # **************** INITIALIZE & RUN CALCULATION **************** 
     
+    """
     # AIMD 
-    aimd = AIMD(delE0=gradients[0], symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, dt=dt, 
-                stepnum=stepnum, temperature=temperature, quant_centers=quant_centers, conv2bohr=conv2bohr)
+    aimd = AIMD(delE0=gradients[0], symbols=symbols, positions=positions, nsurf=nsurf, 
+                energies=energies, dt=dt, stepnum=stepnum, temperature=temperature, 
+                quant_centers=quant_centers, fixed_centers=fixed_centers, 
+                conv2bohr=conv2bohr, vel_init=vel_init)
     aimd.run()
-    
+    """
+
     """
     # Ehrenfest
     ehrenfest = Ehrenfest(gradients=gradients, dcs=dcs, td_coeffs=td_coeffs, num_TDNAC=num_TDNAC, 
                           symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, dt=dt, 
-                          stepnum=stepnum, temperature=temperature, quant_centers=quant_centers, conv2bohr=conv2bohr)
+                          stepnum=stepnum, temperature=temperature, quant_centers=quant_centers, 
+                          fixed_centers=fixed_centers, conv2bohr=conv2bohr, vel_init=vel_init)
     ehrenfest.run()
     """
     
-    """
     # FSSH
-    fssh = FSSH(gradients=gradients, active_surface=active_surface, dcs=dcs, td_coeffs=td_coeffs, num_TDNAC=num_TDNAC, 
-                symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, dt=dt, stepnum=stepnum, 
-                temperature=temperature, quant_centers=quant_centers, conv2bohr=conv2bohr)
+    fssh = FSSH(gradients=gradients, active_surface=active_surface, dcs=dcs, td_coeffs=td_coeffs, 
+                num_TDNAC=num_TDNAC, symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, 
+                dt=dt, stepnum=stepnum, temperature=temperature, quant_centers=quant_centers, 
+                fixed_centers=fixed_centers, conv2bohr=conv2bohr, vel_init=vel_init)
     fssh.run()
-    """
 
 if __name__ == "__main__":
     main()

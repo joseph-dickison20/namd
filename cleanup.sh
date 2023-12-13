@@ -27,9 +27,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-rm *.txt ${qcfile}.out
-
 # Below are the cleanup commands specific for the NAMD file writes
+# Can be used to cleanup directory, but I will not enable this here
 :<<'COMMENT'
 # Remove NAMD file writes
 rm xfile.txt vfile.txt gfile.txt tdfile.txt ${qcfile}.out
