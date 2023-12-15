@@ -27,7 +27,7 @@ def get_T_matrix(vels, dcs, dt, num_TDNAC):
 
     # Preallocate and prepare and Tmat computation
     nstates = len(dcs) # the number of states included in the expansion
-    Tmat = np.ones((nstates,nstates))
+    Tmat = np.zeros((nstates,nstates))
     dt *= fs2au # convert time step to au of time
 
     # Calculate Tmat numerically or analytically based on user input
@@ -150,7 +150,7 @@ def check_hop(time_points, y_values, active_surface, Tmat):
                 curr_soln = y_values[i] # the current set of solutions
                 mag = np.abs(curr_soln[active_surface])**2 # magnitude of the active coefficient
                 # Calculate hop prob between active_state and current state j 
-                curr_prob = ((2*dtq)/mag)*np.real(Tmat[active_surface,j]*np.conj(curr_soln[active_surface]*curr_soln[j]))
+                curr_prob = ((2*dtq)/mag)*np.real(Tmat[active_surface,j]*np.conj(curr_soln[active_surface])*curr_soln[j])
                 if curr_prob < 0:
                     hop_probs.append(0)
                 else:
