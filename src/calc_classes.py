@@ -147,6 +147,15 @@ class Ehrenfest(Calculation):
             Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, self.num_TDNAC)
             print("\n TD-NAC MATRIX (1/(au of time))")
             print(Tmat)
+            if self.num_TDNAC:
+                nstates = len(self.dcs)
+                anl_Tmat = np.zeros((nstates,nstates))
+                for j in range(nstates):
+                    for i in range(nstates):
+                        if i != j:
+                            anl_Tmat[j,i] = np.sum(np.multiply(self.dcs[j][i], prev_vels)) # Tji = dot(v,dji)
+                print("\n ANALYTICAL TD-NAC MATRIX, for comparison to numerical TD-NAC shown previously (1/(au of time))")
+                print(anl_Tmat)
             # Integrate the TDSE to get the new coefficients for each adiabat
             new_coeffs, time_points, y_values = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)
             # Calculate the new average surface
@@ -235,6 +244,16 @@ class FSSH(Calculation):
             Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, self.num_TDNAC)
             print("\n TD-NAC MATRIX (1/(au of time))")
             print(Tmat)
+
+            if self.num_TDNAC:
+                nstates = len(self.dcs)
+                anl_Tmat = np.zeros((nstates,nstates))
+                for j in range(nstates):
+                    for i in range(nstates):
+                        if i != j:
+                            anl_Tmat[j,i] = np.sum(np.multiply(self.dcs[j][i], prev_vels)) # Tji = dot(v,dji)
+                print("\n ANALYTICAL TD-NAC MATRIX, for comparison to numerical TD-NAC shown previously (1/(au of time))")
+                print(anl_Tmat)
             
             # Integrate the TDSE to get the new coefficients for each adiabat
             new_coeffs, time_points, y_values = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)

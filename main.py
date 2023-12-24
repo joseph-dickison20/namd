@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import argparse
 from namd.src.calc_classes import *
@@ -82,8 +83,9 @@ def main():
         # Assume we begin in one adiabatic state, not a coherent mixture
         active_surface = int(np.where(np.real(td_coeffs) == 1)[0][0]) if np.any(np.real(td_coeffs) == 1) else None
     else:
-        with open("active_surface.txt", "r") as file:
-            active_surface = int(file.read())
+        if os.path.exists("active_surface.txt"):
+            with open("active_surface.txt", "r") as file:
+                active_surface = int(file.read())
 
     # Store nuclei in symbols list and coordinates in numpy array
     symbols = [] # chemical symbols
