@@ -271,7 +271,7 @@ class FSSH(Calculation):
                 if not frustrated: # however, we only change the active surface if the hop was not frustrated
                     # Set gradient to the new active surface
                     grad = self.gradients[hop_check]
-                self.active_surface = hop_check # set active surface to the one we hopped to
+                    self.active_surface = hop_check # set active surface to the one we hopped to
 
         # Print relevant info at this time step
         print_info(masses, self.energies[self.active_surface], vels, next_positions, grad, self.quant_centers, self.fixed_centers)
