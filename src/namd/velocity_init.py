@@ -5,7 +5,7 @@
 # but velocities should not be rescaled after the initlialization (NVE).
 
 import numpy as np
-from src.sys_info import *
+from namd.sys_info import *
 
 kb = 3.166811563e-6 # Boltzmann constant in hartree/Kelvin
 

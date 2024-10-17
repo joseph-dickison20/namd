@@ -5,11 +5,12 @@ import numpy as np
 
 kb = 3.166811563e-6 # Boltzmann constant in hartree/Kelvin
 
-def get_masses(symbols, quant_centers):
+def get_masses(symbols, quant_centers, fixed_centers):
     # Dictionary to map chemical symbols to amu
     symbol_to_mass = {
         "H": 1.00797,
         "C": 12.011,
+        "N": 14.0067,
         "O": 15.9994,
         "F": 18.998403,
         "Gh": 0 # ghost atom
@@ -19,6 +20,9 @@ def get_masses(symbols, quant_centers):
     masses = 1822.88848*np.array(mass_list) # there are 1822.88848 m_e in one amu
     # Account for quantized centers
     for i in quant_centers:
+        masses[i] = 0
+    # Account for fixed centers
+    for i in fixed_centers:
         masses[i] = 0
     return masses
 

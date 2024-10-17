@@ -3,11 +3,11 @@
 # Method-specific parameters are in the individual (child) classes
 
 import os
-from src.file_io import *
-from src.get_surfaces import *
-from src.sys_info import *
-from src.velocity_init import *
-from src.vverlet import *
+from namd.file_io import *
+from namd.get_surfaces import *
+from namd.sys_info import *
+from namd.velocity_init import *
+from namd.vverlet import *
 
 class Calculation: 
     
@@ -50,10 +50,11 @@ class AIMD(Calculation):
         delE0 (numpy.ndarray): An array of shape (N, 3) giving the gradient of the ground state energy, in hartree/bohr
     """
 
-    def __init__(self, delE0, *args, **kwargs):
+    def __init__(self, delE0, dcs, *args, **kwargs):
         super().__init__(*args, **kwargs)
         print("\n AIMD REQUESTED: classical nuclei will be propagated on the ground state surface")
         self.delE0 = delE0
+        self.dcs = dcs
     
     def run(self):
   
@@ -62,7 +63,7 @@ class AIMD(Calculation):
         """
 
         # Obtain masses of each center and initialize their velocities
-        masses = get_masses(self.symbols, self.quant_centers)
+        masses = get_masses(self.symbols, self.quant_centers, self.fixed_centers)
 
         # Construct the gradient the classical nuclei move on
         # In the case of AIMD, this is just the ground state gradient, 
@@ -82,6 +83,18 @@ class AIMD(Calculation):
         else: 
             prev_vels = np.genfromtxt('vfile.txt', dtype=float)
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
+            # Obtain TD-NAC matrix
+            Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, True)
+            print("\n TD-NAC MATRIX for reference only (1/(au of time))")
+            print(Tmat)
+            nstates = len(self.dcs)
+            anl_Tmat = np.zeros((nstates,nstates))
+            for j in range(nstates):
+                for i in range(nstates):
+                    if i != j:
+                        anl_Tmat[j,i] = np.sum(np.multiply(self.dcs[j][i], prev_vels)) # Tji = dot(v,dji)
+            print("\n ANALYTICAL TD-NAC MATRIX, for comparison to numerical TD-NAC shown previously (1/(au of time))")
+            print(anl_Tmat)
             vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
             for i in self.fixed_centers:
                 vels[i, :] = 0
@@ -124,7 +137,7 @@ class Ehrenfest(Calculation):
         """
 
         # Obtain masses of each center and initialize their velocities
-        masses = get_masses(self.symbols, self.quant_centers)
+        masses = get_masses(self.symbols, self.quant_centers, self.fixed_centers)
 
         # Obtain next velocities via velocity Verlet (or initialize them), calculate the average gradient based on the velocities
         if self.stepnum == 0:
@@ -189,7 +202,7 @@ class FSSH(Calculation):
         num_TDNAC (boolean): True if user is calculating the TD-NAC matrix numerically
     """
 
-    def __init__(self, gradients, active_surface, dcs, td_coeffs, num_TDNAC, *args, **kwargs):
+    def __init__(self, gradients, active_surface, dcs, td_coeffs, num_TDNAC, pdh, *args, **kwargs):
         super().__init__(*args, **kwargs)
         print("\n FSSH REQUESTED: classical nuclei will be on one adiabatic state at a time, with switches according to the FSSH algroithm ")
         self.gradients = gradients
@@ -197,6 +210,7 @@ class FSSH(Calculation):
         self.dcs = dcs
         self.td_coeffs = td_coeffs
         self.num_TDNAC = num_TDNAC
+        self.pdh = pdh
     
     def run(self):
   
@@ -209,7 +223,7 @@ class FSSH(Calculation):
         # If the hop was successful (ie not frustrated), the new active surface will take effect next step
 
         # Obtain masses of each center and initialize their velocities
-        masses = get_masses(self.symbols, self.quant_centers)
+        masses = get_masses(self.symbols, self.quant_centers, self.fixed_centers)
 
         # Get the current ative surface
         grad = self.gradients[self.active_surface]
@@ -265,8 +279,8 @@ class FSSH(Calculation):
             # Rescale velocities if a hop occured
             if hop_check != -1:
                 print(f"\n HOP FROM STATE {self.active_surface} TO STATE {hop_check} ATTEMPTED...")
-                nacv = self.dcs[self.active_surface][hop_check]
-                ediff = self.energies[hop_check] - self.energies[self.active_surface]
+                nacv = self.dcs[hop_check][self.active_surface]
+                ediff = self.energies[self.active_surface] - self.energies[hop_check]
                 vels, frustrated = rescale_vels(vels, nacv, masses, ediff) # vels should be rewritten in case of frustrated or non-frustrated hop
                 if not frustrated: # however, we only change the active surface if the hop was not frustrated
                     # Set gradient to the new active surface

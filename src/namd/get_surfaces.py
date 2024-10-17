@@ -5,7 +5,7 @@
 
 import numpy as np
 from scipy.linalg import logm, sqrtm
-from src.tdse import *
+from namd.tdse import *
 
 fs2au = 41.3413733365 # there are this many au of time in one femtosecond, the unit dt is given in
 
@@ -193,6 +193,9 @@ def rescale_vels(vels, nacv, masses, ediff):
     # Save original error setttings and ignore the divide by zero (for quant_centers)
     original_settings = np.geterr() 
     np.seterr(divide='ignore', invalid='ignore') 
+    
+    # Normalize the nacv matrix
+    nacv /= np.linalg.norm(nacv)
 
     # Calcualte a, b, and c
     a = 0.5 * np.sum(np.where(masses[:, np.newaxis] != 0, (nacv**2) / masses[:, np.newaxis], 0))
