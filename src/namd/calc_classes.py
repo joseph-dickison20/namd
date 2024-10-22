@@ -202,7 +202,7 @@ class FSSH(Calculation):
         num_TDNAC (boolean): True if user is calculating the TD-NAC matrix numerically
     """
 
-    def __init__(self, gradients, active_surface, dcs, td_coeffs, num_TDNAC, pdh, *args, **kwargs):
+    def __init__(self, gradients, active_surface, dcs, td_coeffs, num_TDNAC, *args, **kwargs):
         super().__init__(*args, **kwargs)
         print("\n FSSH REQUESTED: classical nuclei will be on one adiabatic state at a time, with switches according to the FSSH algroithm ")
         self.gradients = gradients
@@ -210,7 +210,6 @@ class FSSH(Calculation):
         self.dcs = dcs
         self.td_coeffs = td_coeffs
         self.num_TDNAC = num_TDNAC
-        self.pdh = pdh
     
     def run(self):
   
@@ -279,8 +278,8 @@ class FSSH(Calculation):
             # Rescale velocities if a hop occured
             if hop_check != -1:
                 print(f"\n HOP FROM STATE {self.active_surface} TO STATE {hop_check} ATTEMPTED...")
-                nacv = self.dcs[hop_check][self.active_surface]
-                ediff = self.energies[self.active_surface] - self.energies[hop_check]
+                nacv = self.dcs[self.active_surface][hop_check]
+                ediff = self.energies[hop_check] - self.energies[self.active_surface]
                 vels, frustrated = rescale_vels(vels, nacv, masses, ediff) # vels should be rewritten in case of frustrated or non-frustrated hop
                 if not frustrated: # however, we only change the active surface if the hop was not frustrated
                     # Set gradient to the new active surface

@@ -68,6 +68,8 @@ def get_rotation_vector(I11, I22, I33, Lp):
     return np.array([omega_x, omega_y, omega_z])
 
 def rescale_vel_to_temp(masses, vels, desired_temp):
-    curr_temp = get_temperature(masses,vels)
-    rescale_vels = np.sqrt(desired_temp/curr_temp)*vels
+    if vels.ndim == 1:
+        vels = vels[np.newaxis, :]  # Ensure 2D (should only not be in case of one particle, like Tully model test)
+    curr_temp = get_temperature(masses, vels)
+    rescale_vels = np.sqrt(desired_temp / curr_temp) * vels
     return rescale_vels

@@ -193,13 +193,10 @@ def rescale_vels(vels, nacv, masses, ediff):
     # Save original error setttings and ignore the divide by zero (for quant_centers)
     original_settings = np.geterr() 
     np.seterr(divide='ignore', invalid='ignore') 
-    
-    # Normalize the nacv matrix
-    nacv /= np.linalg.norm(nacv)
 
     # Calcualte a, b, and c
     a = 0.5 * np.sum(np.where(masses[:, np.newaxis] != 0, (nacv**2) / masses[:, np.newaxis], 0))
-    b = np.sum(vels * nacv)
+    b = np.sum(vels * nacv) 
     c = ediff
 
     # Calculate gamma
@@ -211,8 +208,8 @@ def rescale_vels(vels, nacv, masses, ediff):
     else:
         print(" HOP SUCCESSFUL ")
         frustrated =  False
-        gamma = (-1*b + np.sign(b)*np.sqrt(discriminant))/(2*a)
-
+        gamma = (b - np.sign(b)*np.sqrt(discriminant))/(2*a) # Refer to Eqs. 38-42 of Hammes-Schiffer and Tully's Proton Transfer in Solution for gamma expression https://doi.org/10.1063/1.467455
+        
     # Calculate new velocities
     new_vels = vels - gamma*(np.where(masses[:, np.newaxis] != 0, nacv / masses[:, np.newaxis], 0))
     
