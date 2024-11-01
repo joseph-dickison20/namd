@@ -3,11 +3,11 @@
 # Method-specific parameters are in the individual (child) classes
 
 import os
-from namd.file_io import *
-from namd.get_surfaces import *
-from namd.sys_info import *
-from namd.velocity_init import *
-from namd.vverlet import *
+from file_io import *
+from get_surfaces import *
+from sys_info import *
+from velocity_init import *
+from vverlet import *
 
 class Calculation: 
     

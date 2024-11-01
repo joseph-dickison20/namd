@@ -5,7 +5,7 @@
 
 import numpy as np
 from scipy.linalg import logm, sqrtm
-from namd.tdse import *
+from tdse import *
 
 fs2au = 41.3413733365 # there are this many au of time in one femtosecond, the unit dt is given in
 

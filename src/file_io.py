@@ -2,7 +2,7 @@
 
 import os
 import numpy as np
-from namd.sys_info import *
+from sys_info import *
 
 def print_info(masses, pe, vels, positions, grad, quant_centers, fixed_centers):
     

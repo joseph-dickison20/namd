@@ -1,5 +1,4 @@
 src/__pycache__/
-src/namd/__pycache__/
-namd.egg-info/
+src/namd.egg-info/
 qc.in 
 qc.out
