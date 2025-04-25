@@ -48,13 +48,18 @@ class AIMD(Calculation):
 
     Attributes:
         delE0 (numpy.ndarray): An array of shape (N, 3) giving the gradient of the ground state energy, in hartree/bohr
+        dcs (2D list of numpy.ndarray): List (indexed by two indices) where dcs[i][j] give the array of shape (N, 3) for the derivative coupling between adiabats i and j, in 1/bohr
+        td_coeffs (numpy.ndarray): Array of complex numbers giving the time-dependent coefficients for each adiabat considered from the previous time step
+        num_TDNAC (boolean): True if user is calculating the TD-NAC matrix numerically
     """
 
-    def __init__(self, delE0, dcs, *args, **kwargs):
+    def __init__(self, delE0, dcs, td_coeffs=None, num_TDNAC=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         print("\n AIMD REQUESTED: classical nuclei will be propagated on the ground state surface")
         self.delE0 = delE0
         self.dcs = dcs
+        self.td_coeffs = td_coeffs
+        self.num_TDNAC = num_TDNAC
     
     def run(self):
   
@@ -80,11 +85,13 @@ class AIMD(Calculation):
                 vels = get_initial_vels(masses, self.positions, self.temperature)
             print("\n INITIAL VELOCITIES (in bohr/(au of time))")
             print(vels)
+            # Initialize quantum coefficients if not provided
+            new_coeffs = self.td_coeffs if self.td_coeffs is not None else np.array([])
         else: 
             prev_vels = np.genfromtxt('vfile.txt', dtype=float)
             prev_grad = np.genfromtxt('gfile.txt', dtype=float)
             # Obtain TD-NAC matrix
-            Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, True)
+            Tmat = get_T_matrix(prev_vels, self.dcs, self.dt, self.num_TDNAC)
             print("\n TD-NAC MATRIX for reference only (1/(au of time))")
             print(Tmat)
             nstates = len(self.dcs)
@@ -95,6 +102,14 @@ class AIMD(Calculation):
                         anl_Tmat[j,i] = np.sum(np.multiply(self.dcs[j][i], prev_vels)) # Tji = dot(v,dji)
             print("\n ANALYTICAL TD-NAC MATRIX, for comparison to numerical TD-NAC shown previously (1/(au of time))")
             print(anl_Tmat)
+            
+            # Integrate the TDSE to get the time evolution of quantum amplitudes
+            # This does not affect the AIMD trajectory but tracks the quantum evolution
+            if self.td_coeffs is not None:
+                new_coeffs, time_points, y_values = get_new_coeffs(self.td_coeffs, self.dt, self.energies, Tmat)
+            else:
+                new_coeffs = np.array([])
+                
             vels = get_next_velocity(masses, prev_vels, prev_grad, grad, self.dt)
             for i in self.fixed_centers:
                 vels[i, :] = 0
@@ -108,7 +123,7 @@ class AIMD(Calculation):
         print_info(masses, self.energies[0], vels, next_positions, grad, self.quant_centers, self.fixed_centers)
 
         # Save the velcoity, positions, and gradient for next time step
-        save_info(self.symbols, next_positions, vels, grad, np.array([]), self.conv2bohr)
+        save_info(self.symbols, next_positions, vels, grad, new_coeffs, self.conv2bohr)
 
 class Ehrenfest(Calculation):
     

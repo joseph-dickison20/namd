@@ -155,10 +155,10 @@ def main():
     
     """
     # AIMD 
-    aimd = AIMD(delE0=gradients[0], symbols=symbols, positions=positions, nsurf=nsurf, 
-                energies=energies, dt=dt, stepnum=stepnum, temperature=temperature, 
-                quant_centers=quant_centers, fixed_centers=fixed_centers, 
-                conv2bohr=conv2bohr, vel_init=vel_init)
+    aimd = AIMD(delE0=gradients[0], dcs=dcs, td_coeffs=td_coeffs, num_TDNAC=num_TDNAC, 
+                symbols=symbols, positions=positions, nsurf=nsurf, energies=energies, dt=dt, 
+                stepnum=stepnum, temperature=temperature, quant_centers=quant_centers, 
+                fixed_centers=fixed_centers, conv2bohr=conv2bohr, vel_init=vel_init)
     aimd.run()
     """
 
